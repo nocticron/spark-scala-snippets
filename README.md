@@ -81,26 +81,33 @@ val columns = Seq("cola", "colb").map(col)
 tables.map( (x: DataFrame) => x.select(columns:_*)).reduce(_ union _)
 ```
 
-- Check the level height. A row has a level height $H$, if `level_1` to `level_H` are $1$, and `level_H+1` to `level_MAX_LEVEL` are $0$. The $Level_{MAX}$ if known beforehand.
+- Check the level height. A row has a level height $H$, if `level_1` to `level_H` are $Not Null$, and `level_H+1` to `level_MAX_LEVEL` are $Null$. The $Level_{MAX}$ if known beforehand. The task is, having the `level` height column and `level_i` columns, check that height number is correct.
+> e.g. level height: 5, max: 7, so columns `level_1`, ..., `level_5` are not null, and `level_6` and `level_7` are null
 
 ```scala
-import org.apache.spark.sql.DataFrame
+import org.apache.spark.sql.Column
 import org.apache.spark.sql.functions.{col, when, lit}
 
-val LEVELS = 6
-val levels = (for (i <- 1 to LEVELS) yield s"category_$i")
+val LEVELS = 7
+val levels = (for (i <- 1 to LEVELS) yield s"level_$i")
 
+/* Given the level number, yield the checking statement for it. */
 val genChecker_ = (level: Int, maxLevel: Int) => {
     if (level>0) {
-        val yes = for (i <- 1 to level) yield col(s"category_$i").isNotNull
+        val yes = for (i <- 1 to level) yield col(s"level_$i").isNotNull
         if (level<maxLevel) {
-            val no = for (i <- level+1 to maxLevel) yield col(s"category_$i").isNull
+            val no = for (i <- level+1 to maxLevel) yield col(s"level_$i").isNull
             (yes.reduce(_ and _) and no.reduce(_ and _))        
         } else yes.reduce(_ and _) 
     } else lit(false)
 }
-val genChecker = (level:Int) => genChecker_(level, LEVELS) // config the maxLevel 
+
+/* Config the maxLevel */
+val genChecker = (level:Int) => genChecker_(level, LEVELS)
+
 val levelsToGen = for (i <- 2 to LEVELS) yield i // cause of using foldLeft, hack to count from 2
+
+/* Since the levels count is finite, you can pre-generate this to a Map-like constant */
 val correctHeight = (x: Column) => levelsToGen.foldLeft(
         when(x===lit(1), genChecker(1))
     ){
