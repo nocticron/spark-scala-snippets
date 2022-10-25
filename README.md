@@ -13,7 +13,7 @@ import json
 from pyspark import SparkFiles
 
 spark.sparkContext.addFile("hdfs://a.json")
-with open(SparkFiles.get('a.json'.format(index)), 'rb') as handle:
+with open(SparkFiles.get('a.json'), 'rb') as handle:
     j = json.load(handle)
 ```
 
