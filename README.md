@@ -37,6 +37,9 @@ val res = spark.catalog.listTables(db).where(col("tableType")===lit("VIEW"))
 - Parse dates
 ```scala
 import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.time.temporal.ChronoUnit
+
 val PARTITION_FORMAT = "yyyy-MM-dd"
 val fmt = DateTimeFormatter.ofPattern(PARTITION_FORMAT)
 
