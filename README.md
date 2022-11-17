@@ -1,5 +1,44 @@
 # Snippets
 
+- Assume that you want to apply function $a$ to columns `address` and `name`, and $b$ to `hash`:
+```scala
+import org.apache.spark.sql.{DataFrame, Column}
+import org.apache.spark.sql.functions.regexp_replace
+
+val a = (x: Column) => regexp_replace(x, "a", "")
+val b = (x: Column) => regexp_replace(x, "b", "")
+
+val applies = Map(
+    Seq("address", "name") -> a,
+    Seq("hash") -> b
+)
+
+val df = Seq(("a","b","c"))
+    .toDF("address", "hash", "name")
+
+val dfWithColumns = (
+        df: DataFrame, 
+        applies:  Map[_ <: Iterable[String], (Column => Column)]
+    ) => 
+    applies.foldLeft(df)(
+        (oldDf, sequenceOfCols) => 
+            sequenceOfCols._1.foldLeft(oldDf)(
+                (dft, currentCol) =>  
+                    dft.withColumn(currentCol, sequenceOfCols._2(col(currentCol)))
+            )
+        )
+
+val dft = dfWithColumns(df, applies)
+```
+```scala
+dft.limit(1).show
++-------+----+----+
+|address|hash|name|
++-------+----+----+
+|       |    |   c|
++-------+----+----+
+```
+
 - Most common config params
 ```conf
 spark.app.name=LOLKEK
@@ -7,6 +46,21 @@ spark.dynamicAllocation.maxExecutors=15
 spark.driver.memory=8G
 spark.executor.memoryOverhead=2G
 ```
+- Drop table not using (usually unescaped) SQL
+```scala
+import org.apache.spark.sql.execution.command.DropTableCommand
+import org.apache.spark.sql.catalyst.parser.ParserInterface
+import org.apache.spark.sql.catalyst.TableIdentifier
+
+val p: ParserInterface = spark.sessionState.sqlParser
+val targetIdentifier: TableIdentifier = p.parseTableIdentifier("a.b")
+
+// or manually:
+// val targetIdentifier = TableIdentifier(tableName, Some(db))
+
+val res = DropTableCommand(tableName=targetIdentifier, ifExists=true, isView=false, purge=false).run(spark)  
+```
+
 - Read file
 ```python
 import json
